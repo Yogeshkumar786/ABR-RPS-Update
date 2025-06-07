@@ -78,11 +78,11 @@ def update_and_migrate():
     sheet1, sheet2 = get_sheets()
     headers = sheet1.row_values(1)
     start_idx = get_column_index(headers, "Route_Start_Date_Time")
-    reach_idx = get_column_index(headers, "Route_Reaching_Date_Time")
+    reach_idx = get_column_index(headers, "Actual_Closing_Time")
 
     sheet2_headers = sheet2.row_values(1)
     sheet2_start_idx = get_column_index(sheet2_headers, "Route_Start_Date_Time")
-    sheet2_reach_idx = get_column_index(sheet2_headers, "Route_Reaching_Date_Time")
+    sheet2_reach_idx = get_column_index(sheet2_headers, "Actual_Closing_Time")
 
     records = sheet1.get_all_records()
     existing_rps_set = {str(row["RPS No"]).strip() for row in sheet2.get_all_records()}
