@@ -23,6 +23,12 @@ def get_sheets():
     sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/1yMXt8xPbnYL6_QF3Q37-WZKfv9EwIcQ1a3HAQu35TeE/edit?usp=sharing").worksheet("RPS_Closed")
     return sheet1, sheet2
 
+def get_column_index(headers, target_name):
+    for idx, col in enumerate(headers):
+        if col.strip().lower() == target_name.strip().lower():
+            return idx + 1  # gspread uses 1-based indexing
+    raise ValueError(f"Column '{target_name}' not found. Headers were: {headers}")
+
 def fetch_times_with_playwright(rps_no: str):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -32,7 +38,6 @@ def fetch_times_with_playwright(rps_no: str):
         try:
             page.goto("http://smart.dsmsoft.com/FMSSmartApp/Safex_RPS_Reports/RPS_Reports.aspx?usergroup=NRM.101", wait_until="domcontentloaded", timeout=120000)
 
-            # Interaction sequence
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[4]/div[2]').click()
             page.wait_for_timeout(500)
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[4]/div[3]/div[2]/ul/li[1]/input').click()
@@ -56,7 +61,6 @@ def fetch_times_with_playwright(rps_no: str):
             page.fill(f'xpath={rps_input_xpath}', rps_no)
             page.wait_for_timeout(2000)
 
-            # Extract both times
             reaching_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[4]'
             start_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[3]'
 
@@ -73,17 +77,16 @@ def fetch_times_with_playwright(rps_no: str):
 def update_and_migrate():
     sheet1, sheet2 = get_sheets()
     headers = sheet1.row_values(1)
-    start_idx = headers.index("Route_Start_Date_Time") + 1
-    reach_idx = headers.index("Route_Reaching_Date_Time") + 1
+    start_idx = get_column_index(headers, "Route_Start_Date_Time")
+    reach_idx = get_column_index(headers, "Route_Reaching_Date_Time")
 
     sheet2_headers = sheet2.row_values(1)
-    sheet2_start_idx = sheet2_headers.index("Route_Start_Date_Time") + 1
-    sheet2_reach_idx = sheet2_headers.index("Route_Reaching_Date_Time") + 1
+    sheet2_start_idx = get_column_index(sheet2_headers, "Route_Start_Date_Time")
+    sheet2_reach_idx = get_column_index(sheet2_headers, "Route_Reaching_Date_Time")
 
     records = sheet1.get_all_records()
     existing_rps_set = {str(row["RPS No"]).strip() for row in sheet2.get_all_records()}
 
-    # Iterate in reverse to avoid row shifting during deletion
     for i in range(len(records), 0, -1):
         row = records[i - 1]
         rps_no = str(row.get("RPS No", "")).strip()
