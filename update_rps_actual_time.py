@@ -49,7 +49,7 @@ def fetch_rps_actual_time(rps_no: str) -> str:
             page.wait_for_timeout(500)
 
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[5]/div/button').click()
-            page.wait_for_timeout(30000)
+            page.wait_for_timeout(3000)
 
             rps_input_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[4]/div/div/div[3]/div[3]/div/div/div/div[1]/input'
             page.locator(f'xpath={rps_input_xpath}').click()
