@@ -20,8 +20,8 @@ def get_sheet():
     creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
     client = gspread.authorize(creds)
 
-    spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1NKaBL6fze5tKqu_TfKj3OxN1VkSbQCjAK9zJrxnf9Ac/edit?usp=sharing")
-    return spreadsheet.worksheet("Sheet1")
+    spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1VyuRPidEfJkXk1xtn2uSmKGgcb8df90Wwx_TJ9qBLw0/edit?usp=sharing")
+    return spreadsheet.worksheet("Sheet3")
 
 # Scrape actual_time for a given RPS number
 def fetch_rps_actual_time(rps_no: str) -> str:
