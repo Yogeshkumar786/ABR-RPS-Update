@@ -104,7 +104,7 @@ def update_and_migrate():
         logging.info(f"Fetching times for RPS No: {rps_no}")
         start_time, reaching_time = fetch_times_with_playwright(rps_no)
 
-        if reaching_time and reaching_time.strip()::
+        if reaching_time and reaching_time.strip():
             if rps_no in existing_rps_set:
                 row_idx = existing_rps_set[rps_no]
                 sheet2.update_cell(row_idx, col_start_2, start_time)
