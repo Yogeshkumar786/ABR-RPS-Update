@@ -78,7 +78,7 @@ def update_sheet_with_actual_times():
             actual_time = fetch_rps_actual_time(rps_no)
             if actual_time:
                 logging.info(f"Found: {actual_time}")
-                sheet.update_cell(i, 2, actual_time)
+                sheet.update_cell(i, 27, actual_time)
                 time.sleep(3)
             else:
                 logging.warning(f"Skipping RPS {rps_no}: No data found")
