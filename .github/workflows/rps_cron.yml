@@ -26,7 +26,10 @@ jobs:
 
       - name: Set up service account credentials
         run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
+          cat <<EOF > service_account.json
+          ${{ secrets.GOOGLE_CREDENTIALS }}
+          EOF
+
 
       - name: Run updater script
         run: python update_rps_actual_time.py
