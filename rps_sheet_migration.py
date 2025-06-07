@@ -76,42 +76,54 @@ def fetch_times_with_playwright(rps_no: str):
 
 def update_and_migrate():
     sheet1, sheet2 = get_sheets()
-    headers = sheet1.row_values(1)
-    start_idx = get_column_index(headers, "Route_Start_Date_Time")
-    reach_idx = get_column_index(headers, "Actual_Closing_Time")
+    headers1 = sheet1.row_values(1)
+    headers2 = sheet2.row_values(1)
 
-    sheet2_headers = sheet2.row_values(1)
-    sheet2_start_idx = get_column_index(sheet2_headers, "Route_Start_Date_Time")
-    sheet2_reach_idx = get_column_index(sheet2_headers, "Route_Reaching_Date_Time")
+    start_idx = get_column_index(headers1, "Route_Start_Date_Time")
+    reach_idx = get_column_index(headers1, "Actual_Closing_Time")
+
+    col_rps_1 = get_column_index(headers1, "RPS No")
+    col_vehicle_1 = get_column_index(headers1, "Vehicle Number")
+
+    col_start_2 = get_column_index(headers2, "Route_Start_Date_Time")
+    col_vehicle_2 = get_column_index(headers2, "Vehicle_Number")
+    col_rps_2 = get_column_index(headers2, "RPS No")
+    col_reach_2 = get_column_index(headers2, "Route_Reaching_Date_Time")
 
     records = sheet1.get_all_records()
-    existing_rps_set = {str(row["RPS No"]).strip() for row in sheet2.get_all_records()}
+    sheet2_records = sheet2.get_all_records()
+    existing_rps_set = {str(row["RPS No"]).strip(): idx+2 for idx, row in enumerate(sheet2_records)}
 
     for i in range(len(records), 0, -1):
         row = records[i - 1]
         rps_no = str(row.get("RPS No", "")).strip()
-        if not rps_no or row.get("Route_Reaching_Date_Time"):
+        if not rps_no or row.get("Actual_Closing_Time"):
             continue
 
+        vehicle_no = str(row.get("Vehicle Number", "")).strip()
         logging.info(f"Fetching times for RPS No: {rps_no}")
         start_time, reaching_time = fetch_times_with_playwright(rps_no)
 
         if reaching_time:
-            if rps_no not in existing_rps_set:
-                updated_row = sheet1.row_values(i + 1)
-                sheet2.append_row(updated_row)
-                existing_rps_set.add(rps_no)
-                logging.info(f"Appended RPS {rps_no} to RPS_Closed")
-
-            sheet2_records = sheet2.get_all_records()
-            for j, r in enumerate(sheet2_records, start=2):
-                if str(r.get("RPS No")).strip() == rps_no:
-                    sheet2.update_cell(j, sheet2_start_idx, start_time)
-                    sheet2.update_cell(j, sheet2_reach_idx, reaching_time)
-                    break
+            if rps_no in existing_rps_set:
+                row_idx = existing_rps_set[rps_no]
+                sheet2.update_cell(row_idx, col_start_2, start_time)
+                sheet2.update_cell(row_idx, col_vehicle_2, vehicle_no)
+                sheet2.update_cell(row_idx, col_rps_2, rps_no)
+                sheet2.update_cell(row_idx, col_reach_2, reaching_time)
+                logging.info(f"Updated RPS {rps_no} in RPS_Closed")
+            else:
+                new_row = [''] * max(col_start_2, col_vehicle_2, col_rps_2, col_reach_2)
+                new_row[col_start_2 - 1] = start_time
+                new_row[col_vehicle_2 - 1] = vehicle_no
+                new_row[col_rps_2 - 1] = rps_no
+                new_row[col_reach_2 - 1] = reaching_time
+                sheet2.append_row(new_row)
+                logging.info(f"Inserted new RPS {rps_no} in RPS_Closed")
 
             sheet1.delete_rows(i + 1)
             logging.info(f"Deleted RPS {rps_no} from Sheet3")
+
         elif start_time:
             sheet1.update_cell(i + 1, start_idx, start_time)
             logging.info(f"Updated Route_Start_Date_Time for RPS {rps_no}")
