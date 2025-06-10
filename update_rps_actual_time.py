@@ -89,9 +89,9 @@ def update_and_migrate_batch():
 
     for i, row in enumerate(records):
         rps_no = str(row.get("RPS No", "")).strip()
-        col_42_value = row.get(headers1[41], "").strip().lower()
+        col_8_value = row.get(headers1[7], "").strip().lower()
 
-        if col_42_value != "closed" or not rps_no:
+        if col_8_value != "closed" or not rps_no:
             continue
 
         vehicle_no = str(row.get("Vehicle Number", "")).strip()
