@@ -17,8 +17,8 @@ def get_sheets():
     creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
     client = gspread.authorize(creds)
 
-    sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1VyuRPidEfJkXk1xtn2uSmKGgcb8df90Wwx_TJ9qBLw0/edit?usp=sharing").worksheet("Sheet3")
-    sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/1yMXt8xPbnYL6_QF3Q37-WZKfv9EwIcQ1a3HAQu35TeE/edit?usp=sharing").worksheet("RPS_Closed")
+    sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/17JhXtQfzc6XVmOEXNyNEloMa-mTWgJN4AVAbbJSLoHI/edit?usp=sharing").worksheet("Live_Tracking")
+    sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/17JhXtQfzc6XVmOEXNyNEloMa-mTWgJN4AVAbbJSLoHI/edit?usp=sharing").worksheet("Closed_RPS")
     return sheet1, sheet2
 
 def get_column_index(headers, target_name):
