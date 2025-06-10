@@ -72,8 +72,6 @@ def update_and_migrate_batch():
     headers1 = sheet1.row_values(1)
     headers2 = sheet2.row_values(1)
 
-    start_idx = get_column_index(headers1, "Route_Start_Date_Time")
-    reach_idx = get_column_index(headers1, "Actual_Closing_Time")
     col_rps_1 = get_column_index(headers1, "RPS No")
     col_vehicle_1 = get_column_index(headers1, "Vehicle Number")
 
@@ -91,10 +89,9 @@ def update_and_migrate_batch():
 
     for i, row in enumerate(records):
         rps_no = str(row.get("RPS No", "")).strip()
-        actual_time = str(row.get("Actual_Closing_Time", "")).strip()
-        col_41_value = row.get(headers1[40], "").strip().lower()
+        col_42_value = row.get(headers1[41], "").strip().lower()
 
-        if col_41_value != "closed" or not rps_no or actual_time:
+        if col_42_value != "closed" or not rps_no:
             continue
 
         vehicle_no = str(row.get("Vehicle Number", "")).strip()
