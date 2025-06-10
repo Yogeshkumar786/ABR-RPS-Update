@@ -6,34 +6,35 @@ import time
 import logging
 import os
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Load Google Sheets credentials from external file
-def get_sheet():
+def get_sheets():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
-
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "service_account.json")
     creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
     client = gspread.authorize(creds)
 
-    spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1VyuRPidEfJkXk1xtn2uSmKGgcb8df90Wwx_TJ9qBLw0/edit?usp=sharing")
-    return spreadsheet.worksheet("Sheet3")
+    sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/1VyuRPidEfJkXk1xtn2uSmKGgcb8df90Wwx_TJ9qBLw0/edit?usp=sharing").worksheet("Sheet3")
+    sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/1yMXt8xPbnYL6_QF3Q37-WZKfv9EwIcQ1a3HAQu35TeE/edit?usp=sharing").worksheet("RPS_Closed")
+    return sheet1, sheet2
 
-# Scrape actual_time for a given RPS number
-def fetch_rps_actual_time(rps_no: str) -> str:
+def get_column_index(headers, target_name):
+    for idx, col in enumerate(headers):
+        if col.strip().lower() == target_name.strip().lower():
+            return idx + 1
+    raise ValueError(f"Column '{target_name}' not found. Headers were: {headers}")
+
+def fetch_times_with_playwright(rps_no: str):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        actual_time = None
+        start_time, reaching_time, route = None, None, None
 
         try:
             page.goto("http://smart.dsmsoft.com/FMSSmartApp/Safex_RPS_Reports/RPS_Reports.aspx?usergroup=NRM.101", wait_until="domcontentloaded", timeout=120000)
-
-            # Perform required clicks and selections (fragile XPaths)
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[4]/div[2]').click()
             page.wait_for_timeout(500)
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[4]/div[3]/div[2]/ul/li[1]/input').click()
@@ -42,46 +43,91 @@ def fetch_rps_actual_time(rps_no: str) -> str:
             page.wait_for_timeout(500)
             page.locator('//div[contains(@class,"xdsoft_datepicker")]//button[contains(@class,"xdsoft_prev")]').nth(0).click()
             page.wait_for_timeout(1000)
-
             today = datetime.now()
             day_xpath = f'//td[@data-date="{today.day}" and contains(@class, "xdsoft_date") and not(contains(@class, "xdsoft_disabled"))]'
             page.locator(day_xpath).nth(0).click()
             page.wait_for_timeout(500)
-
             page.locator('xpath=/html/body/form/div[5]/div/div/div/div/div/div/div[3]/div/div[5]/div/button').click()
             page.wait_for_timeout(3000)
-
             rps_input_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[4]/div/div/div[3]/div[3]/div/div/div/div[1]/input'
             page.locator(f'xpath={rps_input_xpath}').click()
             page.wait_for_timeout(500)
             page.fill(f'xpath={rps_input_xpath}', rps_no)
             page.wait_for_timeout(2000)
-
-            time_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[4]'
-            actual_time = page.locator(f'xpath={time_xpath}').text_content(timeout=5000)
+            reaching_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[4]'
+            start_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[3]'
+            route_xpath = '/html/body/form/div[5]/div/div/div/div/div/div/div[4]/div/table/div/div[6]/div/div/div[1]/div/table/tbody/tr[1]/td[6]'
+            reaching_time = page.locator(f'xpath={reaching_xpath}').text_content(timeout=5000)
+            start_time = page.locator(f'xpath={start_xpath}').text_content(timeout=5000)
+            route = page.locator(f'xpath={route_xpath}').text_content(timeout=5000)
         except Exception as e:
-            logging.error(f"Error fetching actual_time for RPS {rps_no}: {e}")
+            logging.error(f"Error fetching times for RPS {rps_no}: {e}")
         finally:
             browser.close()
 
-        return actual_time
+        return start_time, reaching_time, route
 
-# Update Google Sheet with fetched actual_times
-def update_sheet_with_actual_times():
-    sheet = get_sheet()
-    records = sheet.get_all_records()
+def update_and_migrate_batch():
+    sheet1, sheet2 = get_sheets()
+    headers1 = sheet1.row_values(1)
+    headers2 = sheet2.row_values(1)
 
-    for i, row in enumerate(records, start=2):
-        if not row.get("Actual_Time"):
-            rps_no = str(row.get("RPS No"))
-            logging.info(f"Fetching Actual_time for {rps_no}")
-            actual_time = fetch_rps_actual_time(rps_no)
-            if actual_time:
-                logging.info(f"Found: {actual_time}")
-                sheet.update_cell(i, 37, actual_time)
-                time.sleep(3)
+    start_idx = get_column_index(headers1, "Route_Start_Date_Time")
+    reach_idx = get_column_index(headers1, "Actual_Closing_Time")
+    col_rps_1 = get_column_index(headers1, "RPS No")
+    col_vehicle_1 = get_column_index(headers1, "Vehicle Number")
+
+    col_start_2 = get_column_index(headers2, "Route_Start_Date_Time")
+    col_vehicle_2 = get_column_index(headers2, "Vehicle_Number")
+    col_rps_2 = get_column_index(headers2, "RPS No")
+    col_reach_2 = get_column_index(headers2, "Route_Reaching_Date_Time")
+    col_route_2 = get_column_index(headers2, "Route")
+
+    records = sheet1.get_all_records()
+    sheet2_records = sheet2.get_all_records()
+    existing_rps_set = {str(row["RPS No"]).strip(): idx+2 for idx, row in enumerate(sheet2_records)}
+
+    to_delete_indices = []
+
+    for i, row in enumerate(records):
+        rps_no = str(row.get("RPS No", "")).strip()
+        actual_time = str(row.get("Actual_Closing_Time", "")).strip()
+        col_41_value = row.get(headers1[40], "").strip().lower()
+
+        if col_41_value != "closed" or not rps_no or actual_time:
+            continue
+
+        vehicle_no = str(row.get("Vehicle Number", "")).strip()
+        logging.info(f"Fetching times for RPS No: {rps_no}")
+        start_time, reaching_time, route = fetch_times_with_playwright(rps_no)
+
+        if reaching_time and reaching_time.strip():
+            if rps_no in existing_rps_set:
+                row_idx = existing_rps_set[rps_no]
+                sheet2.update_cell(row_idx, col_start_2, start_time)
+                sheet2.update_cell(row_idx, col_vehicle_2, vehicle_no)
+                sheet2.update_cell(row_idx, col_rps_2, rps_no)
+                sheet2.update_cell(row_idx, col_reach_2, reaching_time)
+                sheet2.update_cell(row_idx, col_route_2, route)
+                logging.info(f"Updated RPS {rps_no} in RPS_Closed")
             else:
-                logging.warning(f"Skipping RPS {rps_no}: No data found")
+                new_row = [''] * max(col_start_2, col_vehicle_2, col_rps_2, col_reach_2, col_route_2)
+                new_row[col_start_2 - 1] = start_time
+                new_row[col_vehicle_2 - 1] = vehicle_no
+                new_row[col_rps_2 - 1] = rps_no
+                new_row[col_reach_2 - 1] = reaching_time
+                new_row[col_route_2 - 1] = route
+                sheet2.append_row(new_row)
+                logging.info(f"Inserted new RPS {rps_no} in RPS_Closed")
+            to_delete_indices.append(i + 2)
+        else:
+            logging.info(f"No reaching_time for RPS {rps_no}. Skipping.")
+
+        time.sleep(3)
+
+    for idx in sorted(to_delete_indices, reverse=True):
+        sheet1.delete_rows(idx)
+        logging.info(f"Deleted row {idx} from Sheet3")
 
 if __name__ == "__main__":
-    update_sheet_with_actual_times()
+    update_and_migrate_batch()
