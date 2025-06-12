@@ -18,7 +18,7 @@ def get_sheets():
     client = gspread.authorize(creds)
 
     sheet1 = client.open_by_url("https://docs.google.com/spreadsheets/d/17JhXtQfzc6XVmOEXNyNEloMa-mTWgJN4AVAbbJSLoHI/edit?usp=sharing").worksheet("Live_Tracking")
-    sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/17JhXtQfzc6XVmOEXNyNEloMa-mTWgJN4AVAbbJSLoHI/edit?usp=sharing").worksheet("Closed_RPS")
+    sheet2 = client.open_by_url("https://docs.google.com/spreadsheets/d/1xUjnEup_k6jGleTsJZQwSYkapbalPUM-DMzNtQujDo0/edit?usp=sharing").worksheet("Closed_RPS")
     return sheet1, sheet2
 
 def get_column_index(headers, target_name):
