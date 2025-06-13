@@ -121,6 +121,7 @@ def update_and_migrate_batch():
         vehicle_no = str(row.get("Vehicle Number", "")).strip()
         logging.info(f"Fetching times for RPS No: {rps_no}")
         start_time, reaching_time, route = fetch_times_with_playwright(rps_no)
+        route = route.replace(" ", "") if route else ""
 
         if reaching_time and reaching_time.strip():
             if rps_no in existing_rps_set:
